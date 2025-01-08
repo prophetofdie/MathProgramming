@@ -10,10 +10,12 @@
 #include <array>
 
 using std::vector;
+using std::array;
 enum class EDirection { Column, Row };
 
 using T = long long;
-using matrix = vector<vector<T>>;
+template<size_t rows, size_t cols>
+using matrix = std::array<std::array<T, cols>, rows>;
 
 using node = std::pair<size_t, size_t>;
 
@@ -29,8 +31,8 @@ void set_color(T num, colors color, std::ostream& out) {
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
 }
 
-template<typename T> 
-void print(const vector<vector<T>>& v) {
+template<typename T, size_t r, size_t c>
+void print(const array<array<T, c>, r>& v) {
     std::cout.setf(std::cout.right);
     std::cout.fill(' ');
     for (auto i = v.begin(); i != v.end(); ++i) {
@@ -40,21 +42,24 @@ void print(const vector<vector<T>>& v) {
         std::cout << '\n';
     }
 }
-void print(const vector<node>& v) {
+template<size_t x>
+void print(const array<node, x>& v) {
     std::cout.setf(std::cout.right);
     std::cout.fill(' ');
     for (auto j = v.begin(); j != v.end(); ++j) {
         std::cout << std::setw(alignment) << j->first << std::setw(alignment) << j->second << '\n';
     }
 }
-void print(const vector<T>& v) {
+template<size_t x>
+void print(const array<T, x>& v) {
     std::cout.setf(std::cout.right);
     std::cout.fill(' ');
     for (auto j = v.begin(); j != v.end(); ++j) {
         std::cout << std::setw(alignment) << *j << '\n';
     }
 }
-void print_color(const matrix& v, const vector<node>& chain) {
+template<size_t r, size_t c, size_t x>
+void print_color(const matrix<r, c>& v, const array<node, x>& chain) {
     std::cout.setf(std::cout.right);
     std::cout.fill(' ');
     const size_t size_i = v.size(), size_j = v[0].size();
@@ -80,26 +85,27 @@ void print_color(const matrix& v, const vector<node>& chain) {
 /// <param name="producer">Производитель</param>
 /// <param name="consumer">Потребитель</param>
 /// <returns>Координаты базисных элементов</returns>
-vector<node> find_base_sln(matrix& t_body, vector<T> producer, vector<T> consumer) {
-    vector<node> basis_elems;
+template<size_t r, size_t c>
+array<node, r + c - 1> find_base_sln(matrix<r, c>& t_body, const array<T, c>& producer, array<T, r> consumer) {
+    array<node, r + c - 1> basis_elems;
     T ostatok = producer[0];
-    for (size_t i = 0, j = 0; ;) {
+    for (size_t i = 0, j = 0, k = 0; ;) {
         if (ostatok - consumer[i] > 0) {
             t_body[i][j] = consumer[i];
-            basis_elems.emplace_back(i, j);
+            basis_elems[k++] = { i, j };
             ostatok -= consumer[i];
             ++i;
         }
         else if (ostatok - consumer[i] < 0) {
             t_body[i][j] = ostatok;
-            basis_elems.emplace_back(i, j);
+            basis_elems[k++] = { i, j };
             consumer[i] -= ostatok;
             ++j;
             ostatok = producer[j];
         }
         else {//ostatok == 0
             t_body[i][j] = ostatok;
-            basis_elems.emplace_back(i, j);
+            basis_elems[k++] = { i, j };
             ++j;
             ++i;
             if (j >= producer.size()) break;
@@ -109,13 +115,18 @@ vector<node> find_base_sln(matrix& t_body, vector<T> producer, vector<T> consume
     return basis_elems;
 }
 
-template<typename T>
-vector<T> gauss_elimination(matrix& coefficients, vector<T>& rightHandSide) {
-    size_t n = coefficients.size();
+template<size_t x, size_t y>
+array<T, y> gauss_elimination(const matrix<x, y>& coefficients__, const array<T, y>& rightHandSide) {
+    size_t n = y;
+
+    matrix<y, y> coefficients;
 
     // Расширенная матрица (коэффициенты + правая часть)
-    for (size_t i = 0; i != n; ++i) {
-        coefficients[i].push_back(rightHandSide[i]);
+    for (size_t i = 0; i != x; ++i) {
+        for (size_t j = 0; j != n; ++j) {
+            coefficients[i][j] = coefficients__[i][j];
+        }
+        coefficients[i][x] = rightHandSide[i];
     }
 
     // Прямой ход Гаусса
@@ -141,7 +152,7 @@ vector<T> gauss_elimination(matrix& coefficients, vector<T>& rightHandSide) {
     }
 
     // Обратный ход для нахождения решения
-    vector<T> solution(n);
+    array<T, y> solution;
     for (size_t i = n; i != 0; --i) {
         solution[i - 1] = coefficients[i - 1][n] / coefficients[i - 1][i - 1];
         for (size_t k = i - 1; k != 0; --k) {
@@ -152,15 +163,15 @@ vector<T> gauss_elimination(matrix& coefficients, vector<T>& rightHandSide) {
     return solution;  // Возвращаем вектор решений
 }
 
-void find_potential(const matrix& coasts, vector<T>& alpha, vector<T>& beta, const vector<node>& basis) {
+template<size_t r, size_t c>
+void find_potential(const matrix<r,c>& coasts, array<T, r>& alpha, array<T, c>& beta, const array<node, r + c - 1>& basis) {
     const size_t basis_size = basis.size();
     const size_t coast_size = coasts.size();
     const size_t alpha_size = alpha.size();
 
-    matrix A(basis_size + 1, vector<T>(coasts.size() + coasts[0].size(), 0));
-    vector<T> d(basis_size + 1);
+    matrix<r + c - 1, r + c> A;
+    array<T, r+c> d;
     
-
     for (size_t i = 0; i != basis_size; ++i) {
         d[i] = coasts[basis[i].first][basis[i].second];
     }
@@ -173,7 +184,7 @@ void find_potential(const matrix& coasts, vector<T>& alpha, vector<T>& beta, con
     d.back() = 0;// обнуление Alpha
     A.back()[basis[0].first] = true;// обнуление Alpha
 
-    vector<T> solution = gauss_elimination(A, d);
+    array<T, r + c> solution = gauss_elimination(A, d);
     
     size_t i = 0;
     for (size_t k = 0; i != alpha_size; ++i, ++k) {
@@ -184,20 +195,20 @@ void find_potential(const matrix& coasts, vector<T>& alpha, vector<T>& beta, con
     }
 }
 
-matrix find_G_matrix(const matrix& coasts, const vector<T>& alpha, const vector<T>& beta) {
-    matrix G(coasts);
-    const size_t i_size = coasts.size(), j_size = coasts[0].size();
+template<size_t r, size_t c>
+matrix<r, c> find_G_matrix(const matrix<r, c>& coasts, const array<T, r>& alpha, const array<T, c>& beta) {
+    matrix<r, c> G(coasts);
 
-    for (size_t i = 0; i != i_size; ++i) {
-        for (size_t j = 0; j != j_size; ++j) {
+    for (size_t i = 0; i != r; ++i) {
+        for (size_t j = 0; j != c; ++j) {
             G[i][j] = alpha[i] + beta[j] - coasts[i][j];
         }
     }
 
     return G;
 }
-
-T find_min_in_chain(matrix& t_body, const vector<node>& chain) {
+template<size_t r, size_t c>
+T find_min_in_chain(matrix<r, c>& t_body, const array<node, 4>& chain) {
     T min = std::numeric_limits<T>::max();
     for (auto i = chain.begin(); i != chain.end(); i++) {
         if (min > t_body[i->first][i->second] and t_body[i->first][i->second] != 0) {
@@ -207,7 +218,8 @@ T find_min_in_chain(matrix& t_body, const vector<node>& chain) {
     return min;
 }
 
-bool chain_recurs(const vector<node>& basis, vector<node>& chain, EDirection direction) {
+template<size_t x>
+bool chain_recurs(const array<node, x>& basis, array<node, 4>& chain, EDirection direction) {
     auto get_axis = [direction](node n) {
         switch (direction) {
         case EDirection::Column:
@@ -226,12 +238,12 @@ bool chain_recurs(const vector<node>& basis, vector<node>& chain, EDirection dir
     else {
         for (decltype(auto) n : basis) {
             if (n != chain.back() and get_axis(chain.back()) == get_axis(n)) {
-                chain.push_back(n);
+                //chain.push_back(n);
                 if (chain_recurs(basis, chain, (direction == EDirection::Column) ? EDirection::Row : EDirection::Column)) {
                     return true;
                 }
                 else {
-                    chain.pop_back();
+                    //chain.pop_back();
                 }
             }
         }
@@ -245,8 +257,9 @@ bool chain_recurs(const vector<node>& basis, vector<node>& chain, EDirection dir
 /// <param name="basis">Кооринаты элементов базиса</param>
 /// <param name="destination">Первый элемент цепочки</param>
 /// <returns></returns>
-vector<node> find_chain(const vector<node>& basis, const node& destination) {
-    vector<node> chain = { destination }; 
+template<size_t x>
+array<node, 4> find_chain(const array<node, x>& basis, const node& destination) {
+    array<node, 4> chain = { destination };
 
     if (chain_recurs(basis, chain, EDirection::Row)) {
         return chain;
@@ -261,7 +274,8 @@ vector<node> find_chain(const vector<node>& basis, const node& destination) {
 /// </summary>
 /// <param name="G"></param>
 /// <returns></returns>
-node find_new_place(const matrix& G) {
+template<size_t r, size_t c>
+node find_new_place(const matrix<r, c>& G) {
     const size_t i_size = G.size(), j_size = G[0].size();
 
     for (size_t i = 0; i != i_size; ++i) {
@@ -280,7 +294,8 @@ node find_new_place(const matrix& G) {
 /// <param name="chain">Цепочка</param>
 /// <param name="new_basis_place">Координаты нового элемента базиса</param>
 /// <returns></returns>
-node balance(matrix& t_body, const vector<node>& chain, const node& new_basis_place) {
+template<size_t r, size_t c>
+node balance(matrix<r, c>& t_body, const array<node, 4>& chain, const node& new_basis_place) {
     T min = find_min_in_chain(t_body, chain);// Находим минимальный элемент для вывода из базиса
     bool sign = true; 
     bool is_abort = false; 
@@ -303,7 +318,8 @@ node balance(matrix& t_body, const vector<node>& chain, const node& new_basis_pl
 /// </summary>
 /// <param name="G"></param>
 /// <returns>true - если решение оптимальное</returns>
-bool is_optimal(const matrix& G) {
+template<size_t r, size_t c>
+bool is_optimal(const matrix<r, c>& G) {
     for (auto i = G.begin(); i != G.end(); ++i) {
         for (auto j = i->begin(); j != i->end(); ++j) {
             if (*j > 0) return false;
@@ -312,24 +328,26 @@ bool is_optimal(const matrix& G) {
     return true;
 }
 
-vector<node> base_sln(vector<T>& producer, vector<T>& consumer, matrix& t_body) {
-    vector<node> basis = find_base_sln(t_body, producer, consumer);
+template<size_t r, size_t c>
+array<node, r + c - 1> base_sln(const array<T, c>& producer, const array<T, r>& consumer, matrix<r, c>& t_body) {
+    array<node, r + c - 1> basis = find_base_sln(t_body, producer, consumer);
 
     //Дополняем базис
     for (auto i = basis.begin(); i != basis.end(); ++i) {
         if (not((i->first == (i + 1)->first) or (i->second == (i + 1)->second))) {
-            basis.emplace_back(i->first, i->second + 1);
+            basis.back() = { i->first, i->second + 1 };
             break;
         }
     }
     return basis;
 }
-
-void optimise(matrix& t_body, vector<node>& basis, matrix& coasts, vector<T>& producer, vector<T>& consumer) {
+template<size_t r, size_t c>
+void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<r, c>& coasts) {
     static size_t counter = 0;
     std::cout << "\n\n////////////////////////////////////////////\n";
     std::cout << "Iteration: " << ++counter << '\n';
-    vector<T> beta(producer.size(), 0), alpha(consumer.size(), 0);
+    array<T, c> beta;
+    array<T, r> alpha;
 
     find_potential(coasts, alpha, beta, basis);
 
@@ -348,7 +366,7 @@ void optimise(matrix& t_body, vector<node>& basis, matrix& coasts, vector<T>& pr
 
     node new_basis_place = find_new_place(G);
 
-    vector<node> chain = find_chain(basis, new_basis_place);
+    array<node, 4> chain = find_chain(basis, new_basis_place);
     
     std::cout << "\n\nChained Body\n";
     print_color(t_body, chain);
@@ -357,18 +375,18 @@ void optimise(matrix& t_body, vector<node>& basis, matrix& coasts, vector<T>& pr
     
     std::cout << "\n\nBalanced Body\n";
     print_color(t_body, chain);
-    
-    basis.push_back(new_basis_place);
-    basis.erase(std::remove_if(basis.begin(), basis.end(), [&aborted](const node& i) { return i == aborted; }));
 
-    optimise(t_body, basis, coasts, producer, consumer);
+    *std::find(basis.begin(), basis.end(), aborted) = new_basis_place;
+
+    optimise(t_body, basis, coasts);
 }
 
-void T_task(vector<T>& producer, vector<T>& consumer, matrix& coast) {
-    matrix t_body(consumer.size(), vector<T>(producer.size()));
-    vector<node> basis = base_sln(producer, consumer, t_body);
+template<size_t r, size_t c>
+void T_task(const array<T, c>& producer, const array<T, r>& consumer, const matrix<r, c>& coast) {
+    matrix<r, c> t_body;
+    array<node, r + c - 1> basis = base_sln(producer, consumer, t_body);
 
-    optimise(t_body, basis, coast, producer, consumer);
+    optimise(t_body, basis, coast);
 
     T z = 0;
     const size_t i_size = t_body.size(), j_size = t_body[0].size();
@@ -383,14 +401,17 @@ void T_task(vector<T>& producer, vector<T>& consumer, matrix& coast) {
 
 int main() {
     set_color(0, colors::green, std::cout); // Для красоты
-    
-    vector<T> producer{ 70, 30, 20, 40 };
-    vector<T> consumer{ 90, 30, 40 };
 
-    matrix coast{
-        { 2, 3, 4, 3},
-        { 5, 3, 1, 2},
-        { 2, 1, 4, 2}
+    constexpr size_t r = 3;
+    constexpr size_t c = 4;
+
+    constexpr array<T, c> producer{ 70, 30, 20, 40 };
+    constexpr array<T, r> consumer{ 90, 30, 40 };
+
+    matrix<r, c> coast{
+        array<T, c>{ 2, 3, 4, 3},
+        array<T, c>{ 5, 3, 1, 2},
+        array<T, c>{ 2, 1, 4, 2}
     };
 
     T_task(producer, consumer, coast);
