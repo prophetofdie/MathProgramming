@@ -130,7 +130,7 @@ array<T, x> gauss_elimination(matrix<x, y> coefficients) {
         }
 
         // Меняем местами строки
-        std::swap(coefficients[i], coefficients[maxRow]);
+        std::swap(coefficients[maxRow], coefficients[i]);
 
         // Приводим главную диагональ к единице
         for (size_t j = i + 1; j != n; ++j) {
