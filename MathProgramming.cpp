@@ -7,9 +7,7 @@
 #include <Windows.h>
 #include <string>
 #include <limits>
-#include <array>
 
-using std::vector;
 using std::array;
 enum class EDirection { Column, Row };
 
@@ -249,24 +247,6 @@ bool chain_recurs(const array<node, x>& basis, array<node, 4>& chain, EDirection
         }
     }
     return false;
-    // 
-    //   //if (chain.size() != 1 and get_axis(chain.back()) == get_axis(chain[0])) {
-    //    return true;
-    //}
-    //else {
-    //    for (decltype(auto) n : basis) {
-    //        if (n != chain.back() and get_axis(chain.back()) == get_axis(n)) {
-    //            //chain.push_back(n);
-    //            if (chain_recurs(basis, chain, (direction == EDirection::Column) ? EDirection::Row : EDirection::Column)) {
-    //                return true;
-    //            }
-    //            else {
-    //                //chain.pop_back();
-    //            }
-    //        }
-    //    }
-    //}
-    //return false;
 }
 
 /// <summary>
