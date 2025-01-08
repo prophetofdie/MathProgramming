@@ -116,18 +116,8 @@ array<node, r + c - 1> find_base_sln(matrix<r, c>& t_body, const array<T, c>& pr
 }
 
 template<size_t x, size_t y>
-array<T, y> gauss_elimination(const matrix<x, y>& coefficients__, const array<T, y>& rightHandSide) {
-    size_t n = y;
-
-    matrix<y, y> coefficients;
-
-    // Расширенная матрица (коэффициенты + правая часть)
-    for (size_t i = 0; i != x; ++i) {
-        for (size_t j = 0; j != n; ++j) {
-            coefficients[i][j] = coefficients__[i][j];
-        }
-        coefficients[i][x] = rightHandSide[i];
-    }
+array<T, x> gauss_elimination(matrix<x, y> coefficients) {
+    size_t n = x;
 
     // Прямой ход Гаусса
     for (size_t i = 0; i != n; ++i) {
@@ -152,7 +142,7 @@ array<T, y> gauss_elimination(const matrix<x, y>& coefficients__, const array<T,
     }
 
     // Обратный ход для нахождения решения
-    array<T, y> solution;
+    array<T, x> solution;
     for (size_t i = n; i != 0; --i) {
         solution[i - 1] = coefficients[i - 1][n] / coefficients[i - 1][i - 1];
         for (size_t k = i - 1; k != 0; --k) {
@@ -169,22 +159,29 @@ void find_potential(const matrix<r,c>& coasts, array<T, r>& alpha, array<T, c>& 
     const size_t coast_size = coasts.size();
     const size_t alpha_size = alpha.size();
 
-    matrix<r + c - 1, r + c> A;
-    array<T, r+c> d;
-    
+    matrix<r + c, r + c + 1> A;
+    array<T, r+c + 1> d;
+
+    d.fill(0);
+    A.fill(d);
     for (size_t i = 0; i != basis_size; ++i) {
         d[i] = coasts[basis[i].first][basis[i].second];
     }
 
     for (size_t i = 0; i != basis_size; ++i) {
+
         A[i][basis[i].first] = true;
         A[i][basis[i].second + coast_size] = true;
+        A[i].back() = d[i];
     }
 
     d.back() = 0;// обнуление Alpha
     A.back()[basis[0].first] = true;// обнуление Alpha
 
-    array<T, r + c> solution = gauss_elimination(A, d);
+    std::cout << "\n\nA matrix\n";
+    print(A);
+
+    auto solution = gauss_elimination(A);
     
     size_t i = 0;
     for (size_t k = 0; i != alpha_size; ++i, ++k) {
@@ -219,7 +216,7 @@ T find_min_in_chain(matrix<r, c>& t_body, const array<node, 4>& chain) {
 }
 
 template<size_t x>
-bool chain_recurs(const array<node, x>& basis, array<node, 4>& chain, EDirection direction) {
+bool chain_recurs(const array<node, x>& basis, array<node, 4>& chain, EDirection direction, size_t i = 0) {
     auto get_axis = [direction](node n) {
         switch (direction) {
         case EDirection::Column:
@@ -232,23 +229,44 @@ bool chain_recurs(const array<node, x>& basis, array<node, 4>& chain, EDirection
         };
     // chain[0] - добавляемый элемент
 
-    if (chain.size() != 1 and get_axis(chain.back()) == get_axis(chain[0])) {
+    ++i;
+    if (i != 1 and get_axis(chain[i-1]) == get_axis(chain[0])) {
         return true;
     }
     else {
         for (decltype(auto) n : basis) {
-            if (n != chain.back() and get_axis(chain.back()) == get_axis(n)) {
+            if (n != chain[i-1] and get_axis(chain[i-1]) == get_axis(n)) {
                 //chain.push_back(n);
-                if (chain_recurs(basis, chain, (direction == EDirection::Column) ? EDirection::Row : EDirection::Column)) {
+                chain[i] = n;
+                if (chain_recurs(basis, chain, (direction == EDirection::Column) ? EDirection::Row : EDirection::Column, i)) {
                     return true;
                 }
                 else {
+                    --i;
                     //chain.pop_back();
                 }
             }
         }
     }
     return false;
+    // 
+    //   //if (chain.size() != 1 and get_axis(chain.back()) == get_axis(chain[0])) {
+    //    return true;
+    //}
+    //else {
+    //    for (decltype(auto) n : basis) {
+    //        if (n != chain.back() and get_axis(chain.back()) == get_axis(n)) {
+    //            //chain.push_back(n);
+    //            if (chain_recurs(basis, chain, (direction == EDirection::Column) ? EDirection::Row : EDirection::Column)) {
+    //                return true;
+    //            }
+    //            else {
+    //                //chain.pop_back();
+    //            }
+    //        }
+    //    }
+    //}
+    //return false;
 }
 
 /// <summary>
@@ -384,6 +402,13 @@ void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<
 template<size_t r, size_t c>
 void T_task(const array<T, c>& producer, const array<T, r>& consumer, const matrix<r, c>& coast) {
     matrix<r, c> t_body;
+
+    {
+        array<T, c> temp;
+        temp.fill(0);
+        t_body.fill(temp);
+    }
+
     array<node, r + c - 1> basis = base_sln(producer, consumer, t_body);
 
     optimise(t_body, basis, coast);
