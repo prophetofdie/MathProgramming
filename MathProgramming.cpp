@@ -9,6 +9,8 @@
 #include <limits>
 #include <array>
 
+//#define LOGGING
+
 using std::vector;
 using std::array;
 enum class EDirection { Column, Row };
@@ -164,6 +166,7 @@ void find_potential(const matrix<r,c>& coasts, array<T, r>& alpha, array<T, c>& 
 
     d.fill(0);
     A.fill(d);
+
     for (size_t i = 0; i != basis_size; ++i) {
         d[i] = coasts[basis[i].first][basis[i].second];
     }
@@ -178,8 +181,10 @@ void find_potential(const matrix<r,c>& coasts, array<T, r>& alpha, array<T, c>& 
     d.back() = 0;// обнуление Alpha
     A.back()[basis[0].first] = true;// обнуление Alpha
 
+#ifdef LOGGING
     std::cout << "\n\nA matrix\n";
     print(A);
+#endif // LOGGING
 
     auto solution = gauss_elimination(A);
     
@@ -249,24 +254,6 @@ bool chain_recurs(const array<node, x>& basis, array<node, 4>& chain, EDirection
         }
     }
     return false;
-    // 
-    //   //if (chain.size() != 1 and get_axis(chain.back()) == get_axis(chain[0])) {
-    //    return true;
-    //}
-    //else {
-    //    for (decltype(auto) n : basis) {
-    //        if (n != chain.back() and get_axis(chain.back()) == get_axis(n)) {
-    //            //chain.push_back(n);
-    //            if (chain_recurs(basis, chain, (direction == EDirection::Column) ? EDirection::Row : EDirection::Column)) {
-    //                return true;
-    //            }
-    //            else {
-    //                //chain.pop_back();
-    //            }
-    //        }
-    //    }
-    //}
-    //return false;
 }
 
 /// <summary>
@@ -337,7 +324,7 @@ node balance(matrix<r, c>& t_body, const array<node, 4>& chain, const node& new_
 /// <param name="G"></param>
 /// <returns>true - если решение оптимальное</returns>
 template<size_t r, size_t c>
-bool is_optimal(const matrix<r, c>& G) {
+consteval bool is_optimal(const matrix<r, c>& G) {
     for (auto i = G.begin(); i != G.end(); ++i) {
         for (auto j = i->begin(); j != i->end(); ++j) {
             if (*j > 0) return false;
@@ -362,15 +349,21 @@ array<node, r + c - 1> base_sln(const array<T, c>& producer, const array<T, r>& 
 template<size_t r, size_t c>
 void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<r, c>& coasts) {
     static size_t counter = 0;
+    ++counter;
+
+#ifdef LOGGING
     std::cout << "\n\n////////////////////////////////////////////\n";
-    std::cout << "Iteration: " << ++counter << '\n';
+    std::cout << "Iteration: " << counter << '\n';
+#endif // LOGGING
+
     array<T, c> beta;
     array<T, r> alpha;
 
     find_potential(coasts, alpha, beta, basis);
 
     matrix G = find_G_matrix(coasts, alpha, beta);
-;
+
+#ifdef LOGGING
     std::cout << "\n\nBasis\n";
     print_color(t_body, basis);
     std::cout << "\n\nAlpha\n";
@@ -379,20 +372,25 @@ void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<
     print(beta);
     std::cout << "\n\nG\n";
     print(G);
+#endif // LOGGING
     
     if (is_optimal(G)) return;
 
     node new_basis_place = find_new_place(G);
 
     array<node, 4> chain = find_chain(basis, new_basis_place);
-    
+
+#ifdef LOGGING
     std::cout << "\n\nChained Body\n";
     print_color(t_body, chain);
+#endif // LOGGING
     
     node aborted = balance(t_body, chain, new_basis_place);
-    
+
+#ifdef LOGGING
     std::cout << "\n\nBalanced Body\n";
     print_color(t_body, chain);
+#endif // LOGGING
 
     *std::find(basis.begin(), basis.end(), aborted) = new_basis_place;
 
@@ -400,7 +398,7 @@ void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<
 }
 
 template<size_t r, size_t c>
-void T_task(const array<T, c>& producer, const array<T, r>& consumer, const matrix<r, c>& coast) {
+T T_task(const array<T, c>& producer, const array<T, r>& consumer, const matrix<r, c>& coast) {
     matrix<r, c> t_body;
 
     {
@@ -421,11 +419,18 @@ void T_task(const array<T, c>& producer, const array<T, r>& consumer, const matr
         }
     }
 
+#ifdef LOGGING
     std::cout << "\n\nOptimal function value: " << z;
+#endif // LOGGING
+
+    return z;
 }
 
 int main() {
+#ifdef LOGGING
     set_color(0, colors::green, std::cout); // Для красоты
+#endif // LOGGING
+
 
     constexpr size_t r = 3;
     constexpr size_t c = 4;
@@ -433,7 +438,7 @@ int main() {
     constexpr array<T, c> producer{ 70, 30, 20, 40 };
     constexpr array<T, r> consumer{ 90, 30, 40 };
 
-    matrix<r, c> coast{
+    constexpr matrix<r, c> coast{
         array<T, c>{ 2, 3, 4, 3},
         array<T, c>{ 5, 3, 1, 2},
         array<T, c>{ 2, 1, 4, 2}
