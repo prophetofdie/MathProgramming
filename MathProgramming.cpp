@@ -1,35 +1,35 @@
 ﻿#define NOMINMAX
-#include <iostream>
-#include <vector>
-#include <algorithm>
 #include <array>
-#include <iomanip>
-#include <Windows.h>
-#include <string>
 #include <limits>
+#include <iostream>
 
-using std::vector;
+//#define LOGGING
+
 using std::array;
 enum class EDirection { Column, Row };
 
-using T = double;
+using T = long long;
 template<size_t rows, size_t cols>
 using matrix = std::array<std::array<T, cols>, rows>;
 
 using node = std::pair<size_t, size_t>;
+constexpr node null_node = { -1, -1 };
 
+#ifdef LOGGING
+#include <Windows.h>
+#include <string>
+#include <iomanip>
 
 constexpr std::streamsize alignment = 4;
 
 enum colors { green = 2, blue = 11, red = 12, yellow = 14 };
 
-void set_color(T num, colors color, std::ostream& out) {
+static void set_color(T num, colors color, std::ostream& out) {
     // выбор цвета (в значение color подставлять из перечисления colors)
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
     out << num;
     SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 15);
 }
-
 template<typename T, size_t r, size_t c>
 void print(const array<array<T, c>, r>& v) {
     std::cout.setf(std::cout.right);
@@ -76,6 +76,7 @@ void print_color(const matrix<r, c>& v, const array<node, x>& chain) {
         std::cout << '\n';
     }
 }
+#endif // LOGGING
 
 /// <summary>
 /// Нахождение базиса алгоритмом северо-западного угла
@@ -85,7 +86,7 @@ void print_color(const matrix<r, c>& v, const array<node, x>& chain) {
 /// <param name="consumer">Потребитель</param>
 /// <returns>Координаты базисных элементов</returns>
 template<size_t r, size_t c>
-consteval array<node, r + c - 1> find_base_sln(matrix<r, c>& t_body, const array<T, c>& producer, array<T, r> consumer) {
+constexpr array<node, r + c - 1> find_base_sln(matrix<r, c>& t_body, const array<T, c>& producer, array<T, r> consumer) {
     array<node, r + c - 1> basis_elems;
     T ostatok = producer[0];
     for (size_t i = 0, j = 0, k = 0; ;) {
@@ -115,12 +116,12 @@ consteval array<node, r + c - 1> find_base_sln(matrix<r, c>& t_body, const array
 }
 
 template<typename Ty>
-consteval Ty abs_(Ty a) {
+constexpr Ty abs_(Ty a) {
     return (a < 0) ? -a : a;
 }
 
 template<size_t x, size_t y>
-consteval array<T, x> gauss_elimination(matrix<x, y> coefficients) {
+constexpr array<T, x> gauss_elimination(matrix<x, y> coefficients) {
     size_t n = x;
 
     // Прямой ход Гаусса
@@ -158,7 +159,7 @@ consteval array<T, x> gauss_elimination(matrix<x, y> coefficients) {
 }
 
 template<size_t r, size_t c>
-consteval void find_potential(const matrix<r, c>& coasts, array<T, r>& alpha, array<T, c>& beta, const array<node, r + c - 1>& basis) {
+constexpr void find_potential(const matrix<r, c>& coasts, array<T, r>& alpha, array<T, c>& beta, const array<node, r + c - 1>& basis) {
     const size_t basis_size = basis.size();
     const size_t coast_size = coasts.size();
     const size_t alpha_size = alpha.size();
@@ -182,8 +183,10 @@ consteval void find_potential(const matrix<r, c>& coasts, array<T, r>& alpha, ar
     d.back() = 0;// обнуление Alpha
     A.back()[basis[0].first] = true;// обнуление Alpha
 
-    //std::cout << "\n\nA matrix\n";
-    //print(A);
+#ifdef LOGGING
+    std::cout << "\n\nA matrix\n";
+    print(A);
+#endif // LOGGING
 
     auto solution = gauss_elimination(A);
 
@@ -197,7 +200,7 @@ consteval void find_potential(const matrix<r, c>& coasts, array<T, r>& alpha, ar
 }
 
 template<size_t r, size_t c>
-consteval matrix<r, c> find_G_matrix(const matrix<r, c>& coasts, const array<T, r>& alpha, const array<T, c>& beta) {
+constexpr matrix<r, c> find_G_matrix(const matrix<r, c>& coasts, const array<T, r>& alpha, const array<T, c>& beta) {
     matrix<r, c> G(coasts);
 
     for (size_t i = 0; i != r; ++i) {
@@ -210,9 +213,10 @@ consteval matrix<r, c> find_G_matrix(const matrix<r, c>& coasts, const array<T, 
 }
 
 template<size_t r, size_t c, size_t ch>
-consteval T find_min_in_chain(matrix<r, c>& t_body, const array<node, ch>& chain) {
+constexpr T find_min_in_chain(matrix<r, c>& t_body, const array<node, ch>& chain) {
     T min = std::numeric_limits<T>::max();
     for (auto i = chain.begin(); i != chain.end(); i++) {
+        if (*i == null_node) break;
         if (min > t_body[i->first][i->second] and t_body[i->first][i->second] != 0) {
             min = t_body[i->first][i->second];
         }
@@ -221,7 +225,7 @@ consteval T find_min_in_chain(matrix<r, c>& t_body, const array<node, ch>& chain
 }
 
 template<size_t x, size_t ch>
-consteval bool chain_recurs(const array<node, x>& basis, array<node, ch>& chain, EDirection direction, size_t i = 0) {
+constexpr bool chain_recurs(const array<node, x>& basis, array<node, ch>& chain, EDirection direction, size_t i = 0) {
     auto get_axis = [direction](node n) {
         switch (direction) {
         case EDirection::Column:
@@ -254,29 +258,6 @@ consteval bool chain_recurs(const array<node, x>& basis, array<node, ch>& chain,
     return false;
 }
 
-template<size_t x, size_t y>
-consteval array<node, y> compress_array__(const array<node, x>& a) {
-    array<node, y> res;
-    for (size_t i = 0; i != y; ++i) {
-        res[i] = a[i];
-    }
-    return res;
-}
-
-template<size_t x>
-consteval auto compress_array(const array<node, x>& a) {
-    size_t size = 0;
-    // Loop through the array to find the index of the sentinel value
-    for (size_t i = 0; i < x; ++i) {
-        if (a[i] == node({ -1, -1 })) {
-            break;
-        }
-        ++size;
-    }
-    // Pass the constant size to the next function
-    return compress_array__<x, 4>(a);
-}
-
 /// <summary>
 /// Составление цепочки
 /// </summary>
@@ -284,13 +265,13 @@ consteval auto compress_array(const array<node, x>& a) {
 /// <param name="destination">Первый элемент цепочки</param>
 /// <returns></returns>
 template<size_t x>
-consteval auto find_chain(const array<node, x>& basis, const node& destination) {
-    array<node, x + 1> chain;
-    chain.fill({ -1,-1 });
+constexpr void find_chain(const array<node, x>& basis, const node& destination, array<node, x + 1>& chain) {
+    chain.fill(null_node);
     chain[0] = destination;
 
     if (chain_recurs(basis, chain, EDirection::Row)) {
-        return compress_array(chain);
+        return;
+        //return compress_array(chain);
     }
     else {
         throw "Цепочка не собралась";
@@ -303,7 +284,7 @@ consteval auto find_chain(const array<node, x>& basis, const node& destination) 
 /// <param name="G"></param>
 /// <returns></returns>
 template<size_t r, size_t c>
-consteval node find_new_place(const matrix<r, c>& G) {
+constexpr node find_new_place(const matrix<r, c>& G) {
     const size_t i_size = G.size(), j_size = G[0].size();
 
     for (size_t i = 0; i != i_size; ++i) {
@@ -323,12 +304,13 @@ consteval node find_new_place(const matrix<r, c>& G) {
 /// <param name="new_basis_place">Координаты нового элемента базиса</param>
 /// <returns></returns>
 template<size_t r, size_t c, size_t x>
-consteval node balance(matrix<r, c>& t_body, const array<node, x>& chain, const node& new_basis_place) {
+constexpr node balance(matrix<r, c>& t_body, const array<node, x>& chain, const node& new_basis_place) {
     T min = find_min_in_chain(t_body, chain);// Находим минимальный элемент для вывода из базиса
     bool sign = true;
     bool is_abort = false;
     node aborted; // Выведенный элемент
     for (decltype(auto) chain_el : chain) {
+        if (chain_el == null_node) break;
         t_body[chain_el.first][chain_el.second] += min * ((sign) ? 1 : -1);
         sign = !sign;
         if (t_body[chain_el.first][chain_el.second] == 0) {
@@ -338,7 +320,7 @@ consteval node balance(matrix<r, c>& t_body, const array<node, x>& chain, const 
     }
 
     // Если элемент не был выведен -> балансируем еще 
-    return (!is_abort) ? balance(t_body, chain, new_basis_place) : aborted;
+    return (is_abort) ? aborted : balance(t_body, chain, new_basis_place);
 }
 
 /// <summary>
@@ -347,7 +329,7 @@ consteval node balance(matrix<r, c>& t_body, const array<node, x>& chain, const 
 /// <param name="G"></param>
 /// <returns>true - если решение оптимальное</returns>
 template<size_t r, size_t c>
-consteval bool is_optimal(const matrix<r, c>& G) {
+constexpr bool is_optimal(const matrix<r, c>& G) {
     for (auto i = G.begin(); i != G.end(); ++i) {
         for (auto j = i->begin(); j != i->end(); ++j) {
             if (*j > 0) return false;
@@ -357,7 +339,7 @@ consteval bool is_optimal(const matrix<r, c>& G) {
 }
 
 template<size_t r, size_t c>
-consteval array<node, r + c - 1> base_sln(const array<T, c>& producer, const array<T, r>& consumer, matrix<r, c>& t_body) {
+constexpr array<node, r + c - 1> base_sln(const array<T, c>& producer, const array<T, r>& consumer, matrix<r, c>& t_body) {
     array<node, r + c - 1> basis = find_base_sln(t_body, producer, consumer);
 
     //Дополняем базис
@@ -370,43 +352,50 @@ consteval array<node, r + c - 1> base_sln(const array<T, c>& producer, const arr
     return basis;
 }
 template<size_t r, size_t c>
-consteval void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<r, c>& coasts) {
-    //std::cout << "\n\n////////////////////////////////////////////\n";
-    //std::cout << "Iteration: " << ++counter << '\n';
-    array<T, c> beta;
-    array<T, r> alpha;
+constexpr void optimise(matrix<r, c>& t_body, array<node, r + c - 1>& basis, const matrix<r, c>& coasts, array<node, r + c>& chain, array<T, r>& alpha, array<T, c>& beta) {
+#ifdef LOGGING
+    static size_t counter = 0;
+    std::cout << "\n\n////////////////////////////////////////////\n";
+    std::cout << "Iteration: " << ++counter << '\n';
+#endif // LOGGING
+
+    chain.fill(null_node);
 
     find_potential(coasts, alpha, beta, basis);
 
     matrix G = find_G_matrix(coasts, alpha, beta);
 
-    //std::cout << "\n\nBasis\n";
-    //print_color(t_body, basis);
-    //std::cout << "\n\nAlpha\n";
-    //print(alpha);
-    //std::cout << "\n\nBeta\n";
-    //print(beta);
-    //std::cout << "\n\nG\n";
-    //print(G);
+#ifdef LOGGING
+    std::cout << "\n\nBasis\n";
+    print_color(t_body, basis);
+    std::cout << "\n\nAlpha\n";
+    print(alpha);
+    std::cout << "\n\nBeta\n";
+    print(beta);
+    std::cout << "\n\nG\n";
+    print(G);
+#endif // LOGGING
 
     if (is_optimal(G)) return;
 
     node new_basis_place = find_new_place(G);
 
-    auto chain = find_chain(basis, new_basis_place);
+    find_chain(basis, new_basis_place, chain);
 
     node aborted = balance(t_body, chain, new_basis_place);
 
-    //std::cout << "\n\nBalanced Body\n";
-    //print_color(t_body, chain);
+#ifdef LOGGING
+    std::cout << "\n\nBalanced Body\n";
+    print_color(t_body, chain);
+#endif // LOGGING
 
     *std::find(basis.begin(), basis.end(), aborted) = new_basis_place;
 
-    optimise(t_body, basis, coasts);
+    optimise(t_body, basis, coasts, chain, alpha, beta);
 }
 
 template<size_t r, size_t c>
-consteval T T_task(const array<T, c>& producer, const array<T, r>& consumer, const matrix<r, c>& coast) {
+constexpr T T_task(const array<T, c>& producer, const array<T, r>& consumer, const matrix<r, c>& coast) {
     matrix<r, c> t_body;
 
     {
@@ -416,8 +405,11 @@ consteval T T_task(const array<T, c>& producer, const array<T, r>& consumer, con
     }
 
     array<node, r + c - 1> basis = base_sln(producer, consumer, t_body);
-
-    optimise(t_body, basis, coast);
+    array<node, r + c> chain;
+    chain.fill(null_node);
+    array<T, r> alpha;
+    array<T, c> beta;
+    optimise(t_body, basis, coast, chain, alpha, beta);
 
     T z = 0;
     const size_t i_size = t_body.size(), j_size = t_body[0].size();
@@ -427,15 +419,17 @@ consteval T T_task(const array<T, c>& producer, const array<T, r>& consumer, con
         }
     }
 
-    //std::cout << "\n\nOptimal function value: " << z;
     return z;
 }
 
-int main() {
-    set_color(0, colors::green, std::cout); // Для красоты
 
-    constexpr size_t r = 3;
+int main() {
+#ifdef LOGGING
+    set_color(0, colors::green, std::cout); // Для красоты
+#endif // LOGGING
+
     constexpr size_t c = 4;
+    constexpr size_t r = 3;
 
     constexpr array<T, c> producer{ 70, 30, 20, 40 };
     constexpr array<T, r> consumer{ 90, 30, 40 };
@@ -446,5 +440,10 @@ int main() {
         array<T, c>{ 2, 1, 4, 2}
     };
 
-    constexpr T z = T_task(producer, consumer, coast);
+#ifndef LOGGING
+    constexpr
+#endif // LOGGING
+        T z = T_task(producer, consumer, coast);
+
+    std::cout << "Optimal function value: " << z;
 }
